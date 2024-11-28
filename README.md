@@ -31,7 +31,7 @@ alt.
 `https_proxy=http://localhost:8080 curl -k https://google.com/`
 
 # What happens 
-1. curl connects to port 8000 in proxy.py
+1. curl connects to port 8080 in proxy.py
 2. proxy.py sends the request details to proxy.html running in browser
 3. proxy.html performs the request.
 4. proxy.html returns the response to proxy.py 
@@ -41,6 +41,6 @@ alt.
 - The browser makes the requests, so it is not guaranteed that all headers are sent exactly as your client. Most notably fetch() doesn't allow us to set cookies, and some other headers: https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_header_name
 - Similarly the response is not guaranteed to be exactly what was returned - for example the Content-Encoding and Content-Length will be changed.
 - You cannot run this on a website as you will be blocked by CORS (Unless the visitor launched their browser with `--disable-web-security`).
-- Only test Firefox needs additional config to disable CORS
+- Only tested on msedge. Firefox needs additional config to disable CORS
 - All CONNECT attempts are MITMd, only HTTP(s) allowed.
 
