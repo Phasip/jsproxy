@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Proxy</title>
+    <script type="text/javascript">
+    // Note: proxy.py search and replaces localhost:8000  in this file when accessing the /proxy path
+    const GetRequestsUrl = 'http://localhost:8000/queue';
+    const PutResultUrl = 'http://localhost:8000/result';
+
+
+    const postResult = async (data) => {
+        try {
+            //console.log("fetching PutResultUrl: ", PutResultUrl)
+            const response = await fetch(PutResultUrl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json',},
+                body: JSON.stringify(data),
+            });
+            //console.log('Sent to PutResultUrl, status:', response.status);
+        } catch (error) {
+            console.error('Error sending data to PutResultUrl:', error);
+        }
+    };
+
+
+    const loadRequestQueue = async() => {
+        try {
+            //console.log("fetching GetRequestsUrl: ", GetRequestsUrl)
+            const responseA = await fetch(GetRequestsUrl);
+            if (!responseA.ok) {
+                console.error('Failed to fetch from GetRequestsUrl');
+                return;
+            }
+            const json = await responseA.json();
+            return json;
+        } catch (error) {
+            console.error('Error during polling or fetching:', error);
+        }
+    }
+
+    const makeRequest = async (json) => {
+        if (json && json.requestId && json.method && json.url) {
+            const { requestId, method, url, headers = {}, data = null } = json;
+
+            console.log("proxying: ", url);
+            return await fetch(url, {
+                method: method,
+                headers: headers,
+                body: data.length == 0 ? null : atob(data),
+                cache: 'no-cache',
+                credentials: 'include',
+            }).then(async (fetchResponse) => {
+                const responseData_buffer = await fetchResponse.arrayBuffer();
+                const responseData_base64 = btoa(new Uint8Array(responseData_buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+                const responseHeaders = {};
+                fetchResponse.headers.forEach((value, key) => {
+                    responseHeaders[key] = value;
+                });
+
+                return {
+                    requestId: requestId,
+                    statusCode: fetchResponse.status,
+                    responseData: responseData_base64,
+                    responseHeaders: responseHeaders,
+                };
+            }).catch((e) => {
+                return {
+                    requestId: requestId,
+                    statusCode: 502,
+                    responseData: btoa(e.message),
+                    responseHeaders: {},
+                };
+            });
+        } else {
+            console.error('Invalid data from GetRequestsUrl');
+        }
+        
+    }
+
+    const main = async function() {
+        while (true) {
+            // TODO: This code relies on loadRequestQueue to block until results are in. This may cause issues for example if your browser goes through a proxy to reach the jsproxy
+            await loadRequestQueue().then(json => {
+                json.forEach(element => {
+                    makeRequest(element).then(result => postResult(result));
+                });
+            });
+        }
+    }
+    
+    main();
+    </script>
+</head>
+<body>
+<h1>Javascript Proxy running in background. Check the console</h1>
+</body>
+</html>
